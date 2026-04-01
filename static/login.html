@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DataPulse — Login</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>body{font-family:'Inter',sans-serif}</style>
+</head>
+<body class="bg-gray-950 min-h-screen flex items-center justify-center">
+<div class="w-full max-w-sm px-6">
+  <div class="text-center mb-8">
+    <div class="text-3xl font-extrabold text-white">Data<span class="text-emerald-400">Pulse</span></div>
+    <p class="text-gray-500 text-sm mt-1">실시간 비즈니스 대시보드</p>
+  </div>
+
+  <div id="loginForm">
+    <div class="mb-4">
+      <label class="block text-xs text-gray-500 mb-1">이메일</label>
+      <input id="email" type="email" placeholder="you@company.com" class="w-full h-11 rounded-lg bg-gray-900 border border-gray-800 px-3 text-sm text-white outline-none focus:border-emerald-500"/>
+    </div>
+    <div class="mb-4">
+      <label class="block text-xs text-gray-500 mb-1">비밀번호</label>
+      <input id="password" type="password" placeholder="••••••••" class="w-full h-11 rounded-lg bg-gray-900 border border-gray-800 px-3 text-sm text-white outline-none focus:border-emerald-500"/>
+    </div>
+    <div class="mb-4 hidden" id="companyField">
+      <label class="block text-xs text-gray-500 mb-1">회사명 (선택)</label>
+      <input id="company" type="text" placeholder="회사명" class="w-full h-11 rounded-lg bg-gray-900 border border-gray-800 px-3 text-sm text-white outline-none focus:border-emerald-500"/>
+    </div>
+    <button onclick="submit()" id="submitBtn" class="w-full h-11 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm transition">로그인</button>
+    <p class="text-center text-gray-600 text-xs mt-4">
+      <span id="toggleText">계정이 없으신가요?</span>
+      <button onclick="toggleMode()" class="text-emerald-400 ml-1" id="toggleBtn">회원가입</button>
+    </p>
+    <div class="text-center text-red-400 text-xs mt-3 min-h-[16px]" id="err"></div>
+  </div>
+</div>
+
+<script>
+let isRegister=false;
+
+function toggleMode(){
+  isRegister=!isRegister;
+  document.getElementById('companyField').classList.toggle('hidden',!isRegister);
+  document.getElementById('submitBtn').textContent=isRegister?'회원가입':'로그인';
+  document.getElementById('toggleText').textContent=isRegister?'이미 계정이 있으신가요?':'계정이 없으신가요?';
+  document.getElementById('toggleBtn').textContent=isRegister?'로그인':'회원가입';
+}
+
+async function submit(){
+  const email=document.getElementById('email').value;
+  const pw=document.getElementById('password').value;
+  const company=document.getElementById('company').value;
+  document.getElementById('err').textContent='';
+
+  const url=isRegister?'/api/register':'/api/login';
+  const fd=new FormData();
+  fd.append('email',email);fd.append('password',pw);
+  if(isRegister)fd.append('company',company);
+
+  const r=await fetch(url,{method:'POST',body:fd});
+  const d=await r.json();
+  if(!r.ok){document.getElementById('err').textContent=d.detail||'오류 발생';return}
+  localStorage.setItem('token',d.token);
+  localStorage.setItem('email',d.email);
+  location.href='/';
+}
+
+document.querySelectorAll('input').forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')submit()}));
+if(localStorage.getItem('token'))location.href='/';
+</script>
+</body>
+</html>

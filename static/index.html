@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>DataPulse — Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+body{font-family:'Inter',sans-serif}
+.mono{font-family:'JetBrains Mono',monospace}
+.kpi-card{transition:transform .15s}
+.kpi-card:hover{transform:translateY(-2px)}
+.event-enter{animation:slideIn .3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+.pulse{animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body class="bg-gray-950 text-gray-200 min-h-screen">
+
+<!-- NAV -->
+<nav class="border-b border-gray-800/50 bg-gray-950/80 backdrop-blur sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span class="text-lg font-extrabold text-white">Data<span class="text-emerald-400">Pulse</span></span>
+      <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-semibold">LIVE</span>
+      <span class="w-2 h-2 rounded-full bg-emerald-400 pulse"></span>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="relative" id="alertBell">
+        <button onclick="toggleAlerts()" class="text-gray-500 hover:text-white transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        </button>
+        <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold flex items-center justify-center text-white" id="alertCount">0</span>
+      </div>
+      <span class="text-xs text-gray-600" id="userEmail"></span>
+      <button onclick="logout()" class="text-xs text-gray-600 hover:text-red-400 transition">로그아웃</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ALERTS PANEL -->
+<div class="fixed top-14 right-4 w-80 bg-gray-900 border border-gray-800 rounded-xl shadow-2xl z-50 hidden max-h-[60vh] overflow-y-auto" id="alertPanel">
+  <div class="p-3 border-b border-gray-800 flex justify-between items-center">
+    <span class="text-sm font-bold">알림</span>
+    <button onclick="toggleAlerts()" class="text-gray-500 text-xs">닫기</button>
+  </div>
+  <div id="alertList" class="p-2"></div>
+</div>
+
+<!-- MAIN -->
+<main class="max-w-7xl mx-auto px-4 py-6">
+
+  <!-- KPI CARDS -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    <div class="kpi-card bg-gray-900/50 border border-gray-800/50 rounded-xl p-4">
+      <div class="text-xs text-gray-500 mb-1">총 매출</div>
+      <div class="text-2xl font-extrabold text-white mono" id="kpiRevenue">₩0</div>
+      <div class="text-xs text-emerald-400 mt-1" id="kpiRevenueDelta">+0%</div>
+    </div>
+    <div class="kpi-card bg-gray-900/50 border border-gray-800/50 rounded-xl p-4">
+      <div class="text-xs text-gray-500 mb-1">주문 수</div>
+      <div class="text-2xl font-extrabold text-white mono" id="kpiOrders">0</div>
+      <div class="text-xs text-emerald-400 mt-1" id="kpiOrdersDelta">+0</div>
+    </div>
+    <div class="kpi-card bg-gray-900/50 border border-gray-800/50 rounded-xl p-4">
+      <div class="text-xs text-gray-500 mb-1">가입 사용자</div>
+      <div class="text-2xl font-extrabold text-white mono" id="kpiUsers">0</div>
+      <div class="text-xs text-blue-400 mt-1" id="kpiUsersDelta">+0</div>
+    </div>
+    <div class="kpi-card bg-gray-900/50 border border-gray-800/50 rounded-xl p-4">
+      <div class="text-xs text-gray-500 mb-1">전환율</div>
+      <div class="text-2xl font-extrabold text-white mono" id="kpiConversion">0%</div>
+      <div class="text-xs text-amber-400 mt-1">실시간</div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+    <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-4">
+      <div class="text-sm font-bold text-gray-400 mb-3">📈 매출 추이</div>
+      <div class="h-48"><canvas id="chartRevenue"></canvas></div>
+    </div>
+    <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-4">
+      <div class="text-sm font-bold text-gray-400 mb-3">📊 주문 추이</div>
+      <div class="h-48"><canvas id="chartOrders"></canvas></div>
+    </div>
+    <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-4">
+      <div class="text-sm font-bold text-gray-400 mb-3">👥 사용자 추이</div>
+      <div class="h-48"><canvas id="chartUsers"></canvas></div>
+    </div>
+    <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-4">
+      <div class="text-sm font-bold text-gray-400 mb-3">🎯 이벤트 분포</div>
+      <div class="h-48"><canvas id="chartPie"></canvas></div>
+    </div>
+  </div>
+
+  <!-- LIVE FEED -->
+  <div class="bg-gray-900/50 border border-gray-800/50 rounded-xl p-4">
+    <div class="flex items-center gap-2 mb-3">
+      <span class="text-sm font-bold text-gray-400">⚡ 실시간 피드</span>
+      <span class="w-2 h-2 rounded-full bg-emerald-400 pulse"></span>
+    </div>
+    <div id="eventFeed" class="space-y-1 max-h-64 overflow-y-auto"></div>
+  </div>
+
+</main>
+
+<script>
+const TOKEN=localStorage.getItem('token');
+if(!TOKEN)location.href='/login';
+document.getElementById('userEmail').textContent=localStorage.getItem('email')||'';
+
+const headers={Authorization:`Bearer ${TOKEN}`};
+
+// Charts
+Chart.defaults.color='rgba(255,255,255,.3)';
+Chart.defaults.borderColor='rgba(255,255,255,.05)';
+Chart.defaults.font.family='Inter';
+Chart.defaults.font.size=10;
+
+const chartOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{display:false}}};
+
+const revenueData={labels:[],datasets:[{data:[],borderColor:'#34d399',backgroundColor:'rgba(52,211,153,.1)',fill:true,tension:.4,borderWidth:2,pointRadius:0}]};
+const ordersData={labels:[],datasets:[{data:[],borderColor:'#60a5fa',backgroundColor:'rgba(96,165,250,.1)',fill:true,tension:.4,borderWidth:2,pointRadius:0}]};
+const usersData={labels:[],datasets:[{data:[],borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.1)',fill:true,tension:.4,borderWidth:2,pointRadius:0}]};
+const pieData={labels:['주문','가입','업그레이드','환불'],datasets:[{data:[0,0,0,0],backgroundColor:['#34d399','#60a5fa','#fbbf24','#f87171'],borderWidth:0}]};
+
+const chartRevenue=new Chart(document.getElementById('chartRevenue'),{type:'line',data:revenueData,options:chartOpts});
+const chartOrders=new Chart(document.getElementById('chartOrders'),{type:'line',data:ordersData,options:chartOpts});
+const chartUsers=new Chart(document.getElementById('chartUsers'),{type:'line',data:usersData,options:chartOpts});
+const chartPie=new Chart(document.getElementById('chartPie'),{type:'doughnut',data:pieData,options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:8}}}}});
+
+const eventCounts={order:0,signup:0,upgrade:0,refund:0};
+let prevRevenue=0,prevOrders=0;
+
+function updateKPI(kpi){
+  const rev=kpi.revenue||0;
+  document.getElementById('kpiRevenue').textContent=`₩${rev.toLocaleString()}`;
+  document.getElementById('kpiOrders').textContent=(kpi.orders||0).toLocaleString();
+  document.getElementById('kpiUsers').textContent=(kpi.users||0).toLocaleString();
+  document.getElementById('kpiConversion').textContent=`${kpi.conversion||0}%`;
+
+  const revDelta=rev-prevRevenue;
+  document.getElementById('kpiRevenueDelta').textContent=revDelta>=0?`+₩${revDelta.toLocaleString()}`:`-₩${Math.abs(revDelta).toLocaleString()}`;
+  document.getElementById('kpiRevenueDelta').className=`text-xs mt-1 ${revDelta>=0?'text-emerald-400':'text-red-400'}`;
+
+  const ordDelta=kpi.orders-prevOrders;
+  document.getElementById('kpiOrdersDelta').textContent=`+${ordDelta}`;
+
+  prevRevenue=rev;prevOrders=kpi.orders;
+}
+
+function addChartPoint(chart,label,value){
+  chart.data.labels.push(label);
+  chart.data.datasets[0].data.push(value);
+  if(chart.data.labels.length>30){chart.data.labels.shift();chart.data.datasets[0].data.shift()}
+  chart.update('none');
+}
+
+function addEvent(evt){
+  const icons={order:'🛒',signup:'👤',upgrade:'⬆️',refund:'↩️',alert:'🔔'};
+  const colors={order:'text-emerald-400',signup:'text-blue-400',upgrade:'text-amber-400',refund:'text-red-400',alert:'text-gray-400'};
+  const feed=document.getElementById('eventFeed');
+  const div=document.createElement('div');
+  div.className=`event-enter flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-gray-800/30 transition text-sm`;
+  const amt=evt.amount?`<span class="mono text-xs ${evt.amount>0?'text-emerald-400':'text-red-400'}">${evt.amount>0?'+':''}₩${evt.amount.toLocaleString()}</span>`:'';
+  div.innerHTML=`
+    <span>${icons[evt.type]||'📌'}</span>
+    <span class="flex-1 ${colors[evt.type]||''}">${evt.description}</span>
+    ${amt}
+    <span class="text-xs text-gray-600 mono">${evt.time}</span>
+  `;
+  feed.insertBefore(div,feed.firstChild);
+  if(feed.children.length>50)feed.lastChild.remove();
+
+  if(eventCounts[evt.type]!==undefined)eventCounts[evt.type]++;
+  pieData.datasets[0].data=[eventCounts.order,eventCounts.signup,eventCounts.upgrade,eventCounts.refund];
+  chartPie.update('none');
+}
+
+// WebSocket
+const proto=location.protocol==='https:'?'wss':'ws';
+const ws=new WebSocket(`${proto}://${location.host}/ws`);
+ws.onmessage=e=>{
+  const d=JSON.parse(e.data);
+  if(d.type==='update'){
+    updateKPI(d.kpi);
+    addEvent(d.event);
+    const t=d.event.time;
+    addChartPoint(chartRevenue,t,d.kpi.revenue);
+    addChartPoint(chartOrders,t,d.kpi.orders);
+    addChartPoint(chartUsers,t,d.kpi.users);
+  }
+};
+ws.onclose=()=>{setTimeout(()=>location.reload(),3000)};
+
+// Alerts
+async function loadAlerts(){
+  const r=await fetch('/api/alerts',{headers});
+  if(r.status===401){location.href='/login';return}
+  const alerts=await r.json();
+  document.getElementById('alertCount').textContent=alerts.filter(a=>!a.read).length;
+  document.getElementById('alertList').innerHTML=alerts.length
+    ?alerts.map(a=>`<div class="p-2 rounded-lg hover:bg-gray-800/50 text-xs">
+        <div class="font-semibold ${a.severity==='success'?'text-emerald-400':'text-gray-300'}">${a.title}</div>
+        <div class="text-gray-500 mt-0.5">${a.message}</div>
+      </div>`).join('')
+    :'<p class="text-center text-gray-600 text-xs py-4">알림이 없습니다</p>';
+}
+
+let alertOpen=false;
+function toggleAlerts(){
+  alertOpen=!alertOpen;
+  document.getElementById('alertPanel').classList.toggle('hidden',!alertOpen);
+  if(alertOpen)loadAlerts();
+}
+
+function logout(){
+  localStorage.removeItem('token');
+  localStorage.removeItem('email');
+  location.href='/login';
+}
+
+// Initial load
+loadAlerts();
+setInterval(loadAlerts,10000);
+</script>
+</body>
+</html>
